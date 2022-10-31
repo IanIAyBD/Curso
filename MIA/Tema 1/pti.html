@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    
+      <title>How and why stable diffusion works for text to image generation :: Päpper&#39;s Machine Learning Blog — This blog features state of the art applications in machine learning with a lot of PyTorch samples and deep learning code. You will learn about neural network optimization and potential insights for artificial intelligence for example in the medical domain.</title>
+    
+    <meta http-equiv="content-type" content="text/html; charset=utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+<meta name="description" content="Stable diffusion is all the rage in the deep learning community at the moment. It&amp;rsquo;s trending on Twitter at #stablediffusion and gaining large amounts of attention all over the internet.
+We&amp;rsquo;ll take a look into the reasons for all the attention to stable diffusion and more importantly see how it works under the hood by considering the well-written paper &amp;ldquo;High-resolution image synthesis with latent diffusion models&amp;rdquo; by Rombach et al which is the foundation of the system."/>
+<meta name="keywords" content="machine learning, artificial intelligence, pytorch, neural networks, deep learning"/>
+<meta name="robots" content="noodp"/>
+<link rel="canonical" href="https://www.paepper.com/blog/posts/how-and-why-stable-diffusion-works-for-text-to-image-generation/" />
+
+<link rel="stylesheet" href="https://www.paepper.com/blog/assets/style.css">
+
+
+<link rel="stylesheet" href="https://www.paepper.com/blog/style.css">
+
+
+<link rel="apple-touch-icon-precomposed" sizes="144x144" href="https://www.paepper.com/blog/img/apple-touch-icon-144-precomposed.png">
+<link rel="shortcut icon" href="https://www.paepper.com/blog/img/favicon.png">
+
+
+<meta name="twitter:card" content="summary" />
+<meta name="twitter:title" content="How and why stable diffusion works for text to image generation :: Päpper&#39;s Machine Learning Blog — This blog features state of the art applications in machine learning with a lot of PyTorch samples and deep learning code. You will learn about neural network optimization and potential insights for artificial intelligence for example in the medical domain." />
+<meta name="twitter:description" content="Stable diffusion is all the rage in the deep learning community at the moment. It&amp;rsquo;s trending on Twitter at #stablediffusion and gaining large amounts of attention all over the internet.
+We&amp;rsquo;ll take a look into the reasons for all the attention to stable diffusion and more importantly see how it works under the hood by considering the well-written paper &amp;ldquo;High-resolution image synthesis with latent diffusion models&amp;rdquo; by Rombach et al which is the foundation of the system." />
+<meta name="twitter:site" content="https://www.paepper.com/blog" />
+<meta name="twitter:creator" content="Marc Päpper" />
+<meta name="twitter:image" content="">
+
+
+<meta property="og:locale" content="en" />
+<meta property="og:type" content="article" />
+<meta property="og:title" content="How and why stable diffusion works for text to image generation :: Päpper&#39;s Machine Learning Blog — This blog features state of the art applications in machine learning with a lot of PyTorch samples and deep learning code. You will learn about neural network optimization and potential insights for artificial intelligence for example in the medical domain.">
+<meta property="og:description" content="Stable diffusion is all the rage in the deep learning community at the moment. It&amp;rsquo;s trending on Twitter at #stablediffusion and gaining large amounts of attention all over the internet.
+We&amp;rsquo;ll take a look into the reasons for all the attention to stable diffusion and more importantly see how it works under the hood by considering the well-written paper &amp;ldquo;High-resolution image synthesis with latent diffusion models&amp;rdquo; by Rombach et al which is the foundation of the system." />
+<meta property="og:url" content="https://www.paepper.com/blog/posts/how-and-why-stable-diffusion-works-for-text-to-image-generation/" />
+<meta property="og:site_name" content="How and why stable diffusion works for text to image generation" />
+<meta property="og:image" content="https://www.paepper.com/blog/posts/how-and-why-stable-diffusion-works-for-text-to-image-generation/%!s(&lt;nil&gt;)">
+<meta property="og:image:width" content="2048">
+<meta property="og:image:height" content="1024">
+<meta property="article:section" content="Machine Learning" /><meta property="article:section" content="Deep Learning Papers" />
+<meta property="article:published_time" content="2022-08-27 10:01:16 &#43;0611 &#43;0611" />
+
+
+
+
+
+
+  </head>
+  <body class="">
+    <div class="container">
+      <header class="header">
+  <span class="header__inner">
+    <a href="https://www.paepper.com/blog/" class="logo" style="text-decoration: none;">
+  
+    <span class="logo__mark"><svg xmlns="http://www.w3.org/2000/svg" class="greater-icon" viewBox="0 0 44 44">
+  <path fill="none" d="M15 8l14.729 14.382L15 35.367"/>
+</svg>
+</span>
+    <span class="logo__text">paepper.com/blog</span>
+    <span class="logo__cursor"></span>
+  
+</a>
+
+    <span class="header__right">
+      
+        <nav class="menu">
+  <ul class="menu__inner menu__inner--desktop">
+    
+      
+        
+          <li><a href="https://www.paepper.com">⌂ Paepper.com</a></li>
+        
+      
+        
+          <li><a href="https://www.paepper.com/blog/archive">Archive</a></li>
+        
+      
+    
+  </ul>
+
+  <ul class="menu__inner menu__inner--mobile">
+    
+      
+        <li><a href="https://www.paepper.com">⌂ Paepper.com</a></li>
+      
+    
+      
+        <li><a href="https://www.paepper.com/blog/archive">Archive</a></li>
+      
+    
+  </ul>
+</nav>
+
+        <span class="menu-trigger">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+            <path d="M0 0h24v24H0z" fill="none"/>
+            <path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/>
+          </svg>
+        </span>
+      
+      <span class="theme-toggle">
+        <svg class="theme-toggler" width="24" height="24" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <path d="M22 41C32.4934 41 41 32.4934 41 22C41 11.5066 32.4934 3 22
+  3C11.5066 3 3 11.5066 3 22C3 32.4934 11.5066 41 22 41ZM7 22C7
+  13.7157 13.7157 7 22 7V37C13.7157 37 7 30.2843 7 22Z"/>
+</svg>
+
+      </span>
+    </span>
+  </span>
+</header>
+
+
+      <div class="content">
+        
+  <div class="post">
+    <h2 class="post-title"><a href="https://www.paepper.com/blog/posts/how-and-why-stable-diffusion-works-for-text-to-image-generation/">How and why stable diffusion works for text to image generation</a></h2>
+    <div class="post-meta">
+      
+        <span class="post-date">
+            August 27, 2022
+        </span>
+      
+      <span class="post-author">— Written by Marc Päpper</span>
+      
+        <span class="post-read-time">— ⏰  10 min read</span>
+      
+    </div>
+
+    
+      <span class="post-tags">
+        
+          #<a href="https://www.paepper.com/blog/tags/machinelearning">machinelearning</a>&nbsp;
+        
+          #<a href="https://www.paepper.com/blog/tags/deeplearning">deeplearning</a>&nbsp;
+        
+          #<a href="https://www.paepper.com/blog/tags/imagegeneration">imagegeneration</a>&nbsp;
+        
+      </span>
+    
+
+    
+
+    <div class="post-content">
+      <p>Stable diffusion is all the rage in the deep learning community at the moment. It&rsquo;s trending on Twitter at #stablediffusion and gaining large amounts of attention all over the internet.</p>
+<p>We&rsquo;ll take a look into the reasons for all the attention to stable diffusion and more importantly see how it works under the hood by considering the well-written paper <a href="https://arxiv.org/abs/2112.10752" target="_blank">&ldquo;High-resolution image synthesis with latent diffusion models&rdquo;</a> by Rombach et al which is the foundation of the system.</p>
+<div class="newsletter">
+    <hr/>
+    <h5>Insightful machine learning news from Paepper.com straight to your inbox:</h5>
+    <iframe
+        scrolling="no"
+        style="width:100%!important;height:150px;border:0px #ccc solid !important"
+        src="https://buttondown.email/paepper.com?as_embed=true"
+    ></iframe><br/>
+    <hr/>
+</div>
+<h2 id="reasons-for-stable-diffusion-gaining-so-much-attention">Reasons for stable diffusion gaining so much attention</h2>
+<p>In case you didn&rsquo;t take a look at it, yet: stable diffusion is a text to image generation model where you can enter a text prompt like &ldquo;A person half Yoda half Gandalf&rdquo; and receive an image (512x512 pixels) as output like this:</p>
+
+  <figure class="center" >
+    <img src="yoda-gandalf.png"  alt="Prompt: A person half Yoda half Gandalf, fantasy drawing trending on artstation"   style="border: 1px solid; margin-left: auto; margin-right: auto; padding: 5px"  />
+    
+      <figcaption class="center" >Prompt: A person half Yoda half Gandalf, fantasy drawing trending on artstation</figcaption>
+    
+  </figure>
+
+
+<p>The results look like DALL-E 2 or even better which is awesome already on it&rsquo;s own, but it gets even better: it&rsquo;s very compute efficient and can run on a consumer GPU card needing only around 8-10GB of memory. It&rsquo;s also more efficient than past models to train (alas still too expensive if you don&rsquo;t have access to many GPUs).</p>
+<p>On top of the computational efficiency, the results look splendid. In fact, as explained in the paper cited above, they reach several new highscores on image benchmarks such as image inpainting and class-conditional image synthesis.</p>
+<p>And here comes the best part: this has been fully open-sourced. This includes the code, the model weights as well as the rights to use it for anyone with the goal to democratize creativity for anyone.</p>
+<p>The stable part about it&rsquo;s name stable diffusion is that the sponsor called <a href="https://stability.ai" target="_blank">Stability</a> provided a lot of GPU compute to train this model to the current state (fine-tuned on 512x512px images) and then open sourced it.</p>
+<p>If you want to try out some prompts yourself, you can do so on <a href="https://beta.dreamstudio.ai" target="_blank"><a href="https://beta.dreamstudio.ai">https://beta.dreamstudio.ai</a></a>.</p>
+<h2 id="looking-under-the-hood-how-does-stable-diffusion-work">Looking under the hood: how does stable diffusion work?</h2>
+<p>I very much like hierarchical learning, so we&rsquo;ll start with the high-level view and then go deeper on the individual parts.</p>
+<h3 id="high-level-view">High-level view</h3>
+<p>There are three parts to the system:</p>
+<ul>
+<li>A language model which transforms the text prompt you enter to a representation which can be fed to the diffusion model and used via cross-attention mechanisms. They use a &ldquo;from the shelf&rdquo; BERT tokenizer with a transformer for this part, so I won&rsquo;t go deeper into it.</li>
+<li>The diffusion model which is basically a time conditional U-Net (<a href="https://www.paepper.com/blog/posts/deep-learning-on-medical-images-with-u-net/">for details on U-Net check here</a>) which takes as input some Gaussian noise and the representation of your text prompt and denoises the Gaussian noise to get closer to your text representation. This is repeated several times that&rsquo;s why it&rsquo;s called time conditional.</li>
+<li>A decoder which takes the output of the diffusion model and upscales it to a full image. The diffusion model operates on 64x64px and the decoder brings this to 512x512px.</li>
+</ul>
+
+  <figure class="center" >
+    <img src="text-to-image-illustration.png"  alt="Illustration of the text to image generation. The language model creates an embedding of the text prompt. It&#39;s fed into the diffusion model together with some random noise. The diffusion model denoises it towards the embedding. This is repeated several times. Then in the end the decoder scales the image up to a larger size."   style="border: 1px solid; margin-left: auto; margin-right: auto; padding: 5px"  />
+    
+      <figcaption class="center" >Illustration of the text to image generation (made by author). The language model creates an embedding of the text prompt. It&rsquo;s fed into the diffusion model together with some random noise. The diffusion model denoises it towards the embedding. This is repeated several times. Then in the end the decoder scales the image up to a larger size.</figcaption>
+    
+  </figure>
+
+
+<h4 id="high-level-view-of-the-diffusion-model">High-level view of the diffusion model</h4>
+<p>The idea of diffusion models is that you take an image and add a little bit of Gaussian noise to it, so you obtain a slightly noisy image.
+Then you repeat that process, so to the slightly noisy image you again add a little bit of Gaussian noise to obtain an even noisier image.
+You repeat this several times (up to ~1000 times) to obtain a fully noisy image.</p>
+<p>While doing so, you know for each step the original image (or slightly noisy image) and it&rsquo;s noisier version.</p>
+<p>Then you train a neural network which gets as input the noisier example and has the task to predict the denoised version of the image.</p>
+
+  <figure class="center" >
+    <img src="stable-diffusion-illustration.png"  alt="Illustration of the diffusion process (made by author): going from left to right you keep adding gaussian noise to your image. Then the model learns from right to left to denoise it."   style="border: 1px solid; margin-left: auto; margin-right: auto; padding: 5px"  />
+    
+      <figcaption class="center" >Illustration of the diffusion process (made by author): going from left to right you keep adding gaussian noise to your image. Then the model learns from right to left to denoise it.</figcaption>
+    
+  </figure>
+
+
+<p>In doing so for many different steps, the neural network learns to denoise very noisy images in a repeated manner to obtain the original image.</p>
+<h4 id="high-level-training">High-level training</h4>
+<p>During training, there also exists an encoder which is the counter-part to the decoder mentioned above.</p>
+<p>Together, the encoder and decoder form an autoencoder.</p>
+<p>The goal of the encoder is to transform an input image to a downsampled representation which has high semantic meaning but gets rid of high-frequency visual noise which is not very relevant to the image at hand.</p>
+
+  <figure class="center" >
+    <img src="autoencoder-illustration.png"  alt="Illustration of the autoencoder (made by author): the encoder finds a much smaller representation of the image, but keeps the semantic meaning. The decoder regains the original version of the image from the efficient representation with as little loss as possible."   style="border: 1px solid; margin-left: auto; margin-right: auto; padding: 5px"  />
+    
+      <figcaption class="center" >Illustration of the autoencoder (made by author): the encoder finds a much smaller representation of the image, but keeps the semantic meaning. The decoder regains the original version of the image from the efficient representation with as little loss as possible.</figcaption>
+    
+  </figure>
+
+
+<p>The trick here is that they decoupled the encoding from training the diffusion model. That way, the autoencoder can be trained to get the best image representation and then downstream several diffusion models can be trained on the so-called latent representation (that&rsquo;s just the image represented in a semantically meaningful way, but with 64 times less pixels).</p>
+<p>Doing so, the training of the diffusion model which is on pixel space needs to calculate 64 times less than before on the original image space. And this is totally relevant, because as we will see later, the training and inference of the diffusion model is the most expensive part.</p>
+<p>So training progresses in two-phases:</p>
+<ul>
+<li>Training the autoencoder which handles compressing and decompressing the image representation</li>
+<li>Training the diffusion model on the latents generated by the encoder of the autoencoder (this is combined with the text representation / attention part)</li>
+</ul>
+<h3 id="detailed-view-of-the-components">Detailed view of the components</h3>
+<h4 id="training-the-autoencoder">Training the autoencoder</h4>
+<p>The autoencoder is trained with two losses:</p>
+<ul>
+<li>A perceptual loss which is on the pixel space</li>
+<li>A patch-based adversarial loss which enforces local realism and avoids blurriness</li>
+</ul>
+<p>It downsamples the image by a factor of <code>f</code> which has been tested in the paper with many different values and the trade-off of <code>f=4</code> or <code>f=8</code> was good.</p>
+<p>In addition to the losses, regularization is applied to the autoencoder. There are two different forms which can be used here:</p>
+<ul>
+<li>A Kullback-Leibler penalty to align the learned latents towards the standard normal of the past latents to ensure that the variance in the latents is not too high</li>
+<li>A vector quantization layer within the decoder; this is like defining <code>N</code> prototypes</li>
+</ul>
+<p>Sometimes they use the KL penalty, sometimes the vector quantization when training different diffusion models. To me it&rsquo;s not fully clear when the one or the other is better.
+It seems that for the text to image synthesis model the KL penalty has been used.</p>
+<h4 id="training-of-the-diffusion-model">Training of the diffusion model</h4>
+<p>Given the sequential number of steps to make an image noisy or in the inverse process to denoise it, this can be described as a Markov chain, because every time step only depends on the immediate successor and nothing else.</p>
+
+  <figure class="center" >
+    <img src="stable-diffusion-training.png"  alt="Illustration of the training process. An image with existing caption is used for training. Noise gets added to the image in successive timesteps. The text caption gets embedded by the language model. The diffusion model receives a noisy version and the text embedding and needs to predict the previous time step of the image. Gradient descent is used on the pixel difference between the expected image and the prediction of the diffusion model."   style="width: 130%; max-width:130%; border: 1px solid; margin-left: -80px; margin-right: auto; padding: 0px"  />
+    
+      <figcaption class="center" >Illustration of the training process of the diffusion model (made by author). An image with existing caption is used for training. Noise gets added to the encoded image in successive timesteps. The text caption gets embedded by the language model. The diffusion model receives a noisy version of the image and the text embedding and needs to predict the previous time step of the image. Gradient descent is used on the pixel difference between the expected image and the prediction of the diffusion model.</figcaption>
+    
+  </figure>
+
+
+<p>To train it, you fortunately have the forward steps which can be generated efficiently, so you can for a given image know exactly how it looks noised at time step <code>N</code> and at time step <code>N+1</code>.</p>
+<p>Then you pass the image at time step <code>N+1</code> to the network and expect it to return the image at time step <code>N</code>. For the loss you consider the pixel wise difference between the network predictions and the image at time step <code>N</code>.</p>
+<p>The more noise is on the image, the more the network spends on less relevant visual features, so typically more examples are sampled at earlier time steps than later time steps.</p>
+<h2 id="wait-but-why-does-this-generate-all-this-creative-art">Wait, but why does this generate all this creative art?!</h2>
+<p>So the real question that you are asking yourselves, of course, is: where does the magic come from?</p>
+<p>As I&rsquo;ve described, it&rsquo;s a complex system composed of three parts - the autoencoder, the language model for text embeddings and the latent diffusion model.</p>
+<p>All of these parts are trained on a huge amount of images or image/text pairs, so the embeddings for the autoencoder and the language model are quite sophisticated and cover most of our human semantic space. When then combining concepts together via a new text prompt, the concepts get combined into an embedding that covers this. The latent diffusion model itself is trained to uncover an image out of noise, but guided by this embedding, so it drives the creative embedding concept towards an image representation. Then finally, the decoder helps to bring the latent representation to a more upscaled and human visible version (and it also is trained on millions of images!).</p>
+<p>I think the magic is the overlap / composability of concepts which have been learned during training. For example some images were of half a man half a woman or something like that, so the concept of half / half was learned. Many other images contained parts of Star Wars / Yoda, so a concept of Yoda was learned. And then other images learned about Gandalf. When finally combining all of this into a prompt, the system tries to integrate all of this knowledge to the most likely image that could look like this. And thus images like the one in this article are created.</p>
+<h2 id="summary">Summary</h2>
+<p>It was a great step forward to realize that to speed up a diffusion model, you should reduce the pixel space as that is used repeatedly (in the Markov chain approach) and thus gets expensive. In fact, it&rsquo;s not only reducing the pixel space, but rather to learn a good representation / embedding by the autoencoder up front which still has all the semantics and also the visual representation of the semantics.</p>
+<p>Doing so in a separated manner such that the autoencoder is trained separately makes it flexible to train several different diffusion models which are tuned towards special tasks.</p>
+<p>Combining it with additional inputs in the cross-attention steps was critical to enable the mind blowing effect of having a fast and visually appealing text to image generation model.</p>
+<p>However, instead of using text prompts, other input / embeddings can also be used. For example the authors show how to use a rough segmentation sketch map of classes which then gets transformed to beautiful images by the model and many more things such as removing a person from an image (think Photoshop magic wand super advanced tool):</p>
+
+  <figure class="center" >
+    <img src="people-removal.png"  alt="Taken from Figure 22 of the paper: latent diffusion model to remove objects from images."   style="border: 1px solid; margin-left: auto; margin-right: auto; padding: 5px"  />
+    
+      <figcaption class="center" >Taken from Figure 22 of the paper: latent diffusion model to remove objects from images.</figcaption>
+    
+  </figure>
+
+
+<p>Hopefully, this blog entry on stable diffusion gave you a good overview about the concepts used. If you are curious to go deeper, check out <a href="https://arxiv.org/abs/2112.10752" target="_blank">the latent diffusion model research paper on Arxiv</a>.</p>
+<p>Please let me know in the comments if this article was helpful for you or what you missed and how I might improve it in the future!</p>
+
+    </div>
+    
+      <div class="pagination">
+        <div class="pagination__title">
+          <span class="pagination__title-h">Read other posts</span>
+          <hr />
+        </div>
+        <div class="pagination__buttons">
+          
+          
+            <span class="button next">
+              <a href="https://www.paepper.com/blog/posts/rethinking-depthwise-separable-convolutions/">
+                <span class="button__text">Rethinking Depthwise Separable Convolutions in PyTorch</span>
+                <span class="button__icon">→</span>
+              </a>
+            </span>
+          
+        </div>
+      </div>
+    
+
+    <br /><br />
+    <div class="newsletter" style="max-size: 50%;">
+    <hr/>
+    <h5>Insightful machine learning news from Paepper.com straight to your inbox:</h5>
+    <iframe
+        scrolling="no"
+        style="width:100%!important;height:150px;border:0px #ccc solid !important"
+        src="https://buttondown.email/paepper.com?as_embed=true"
+    ></iframe><br/>
+<div style="margin-top: 20px; float: right; padding-right: 45px;">
+    <span style="vertical-align: super; margin-right: 20px;">And please do follow me on twitter -> </span>
+    <a href="https://twitter.com/mpaepper?ref_src=twsrc%5Etfw" class="twitter-follow-button" data-size="large" data-lang="en" data-show-count="false">Follow @mpaepper</a><script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>
+</div>
+    <hr/>
+</div>
+
+    <div id="disqus_thread"></div>
+<script type="application/javascript">
+    window.disqus_config = function () {
+    
+    
+    
+    };
+    (function() {
+        if (["localhost", "127.0.0.1"].indexOf(window.location.hostname) != -1) {
+            document.getElementById('disqus_thread').innerHTML = 'Disqus comments not available by default when the website is previewed locally.';
+            return;
+        }
+        var d = document, s = d.createElement('script'); s.async = true;
+        s.src = '//' + "paepper-com" + '.disqus.com/embed.js';
+        s.setAttribute('data-timestamp', +new Date());
+        (d.head || d.body).appendChild(s);
+    })();
+</script>
+<noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+<a href="https://disqus.com" class="dsq-brlink">comments powered by <span class="logo-disqus">Disqus</span></a>
+    
+
+    </div>
+
+      </div>
+
+      
+        <footer class="footer">
+  <div class="footer__inner">
+    
+      <div class="copyright copyright--user">
+          <span>Read. Hack. Learn. Repeat. © 11111100011 Marc Päpper</span>
+          <span class="footer-link-span"><a href="https://www.paepper.com/imprint.html">Imprint</a></span>
+          <span><a href="https://www.paepper.com/privacy.html">Privacy</a></span>
+      </div>
+    
+  </div>
+</footer>
+
+<script src="https://www.paepper.com/blog/assets/main.js"></script>
+<script src="https://www.paepper.com/blog/assets/prism.js"></script>
+<script type="text/javascript" async
+  src="https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+  MathJax.Hub.Config({
+  tex2jax: {
+    inlineMath: [['$','$'], ['\\(','\\)']],
+    displayMath: [['$$','$$']],
+    processEscapes: true,
+    processEnvironments: true,
+    skipTags: ['script', 'noscript', 'style', 'textarea', 'pre'],
+    TeX: { equationNumbers: { autoNumber: "AMS" },
+         extensions: ["AMSmath.js", "AMSsymbols.js"] }
+  }
+  });
+  MathJax.Hub.Queue(function() {
+    
+    
+    
+    var all = MathJax.Hub.getAllJax(), i;
+    for(i = 0; i < all.length; i += 1) {
+        all[i].SourceElement().parentNode.className += ' has-jax';
+    }
+  });
+
+  MathJax.Hub.Config({
+  
+  TeX: { equationNumbers: { autoNumber: "AMS" } }
+  });
+</script>
+
+<script async src="https://www.googletagmanager.com/gtag/js?id=UA-63861778-1"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+
+      gtag('config', 'UA-63861778-1', {'anonymize_ip': true});
+</script>
+
+
+      
+    </div>
+
+    
+  </body>
+</html>
